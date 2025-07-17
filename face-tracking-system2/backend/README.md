@@ -1,25 +1,29 @@
-# Face Tracking System - Backend
+# Face Tracking System - Backend v2.0
 
-A professional FastAPI backend for face detection, recognition, and attendance tracking with real-time video streaming capabilities.
+A professional FastAPI backend for face detection, recognition, and attendance tracking with comprehensive role-based user management system.
 
-## 🚀 Features
+## 🚀 New Features (v2.0)
 
-- **Real-time Face Detection & Recognition**: Advanced face detection with confidence scoring
-- **Video Streaming**: MJPEG streaming with face detection overlay
-- **Attendance Tracking**: Automatic attendance recording with employee identification
-- **User Management**: JWT-based authentication with role-based access control
-- **Employee Management**: Complete CRUD operations for employee data
-- **Face Embeddings**: Enroll and manage face embeddings for recognition
-- **Background Monitoring**: Continuous camera monitoring for automated attendance
-- **Rate Limiting**: Protection against brute force attacks
-- **Structured Logging**: Comprehensive logging with rotation and color coding
-- **Configuration Management**: Environment-based configuration with validation
+### 🔐 Role-Based User Management System
+- **Master Admin Account**: Automatically created on first startup
+- **Admin Accounts**: Can create employee accounts only
+- **Employee Accounts**: Standard user access
+- **Secure Authentication**: JWT-based with bcrypt password hashing
+- **Account Management**: Complete CRUD operations for user accounts
+
+### 👥 User Roles & Permissions
+
+| Role | Can Create Admins? | Can Create Employees? | Access Level |
+|------|-------------------|---------------------|--------------|
+| Master Admin | ✅ | ✅ | Full System Access |
+| Regular Admin | ❌ | ✅ | Employee Management |
+| Employee | ❌ | ❌ | Personal Dashboard |
 
 ## 📋 Requirements
 
 ### System Requirements
 - Python 3.8+
-- PostgreSQL 12+
+- **PostgreSQL 12+** (Required - No other databases supported)
 - Camera(s) for video capture
 - Minimum 4GB RAM (8GB recommended)
 - OpenCV-compatible camera drivers
@@ -30,7 +34,8 @@ See `requirements.txt` for complete list. Key dependencies:
 - OpenCV 4.8+
 - face-recognition 1.3+
 - SQLAlchemy 2.0+
-- PostgreSQL driver (psycopg2)
+- PostgreSQL driver (psycopg2-binary)
+- bcrypt for password hashing
 
 ## 🛠️ Installation
 
@@ -51,16 +56,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Database Setup
+### 4. PostgreSQL Database Setup
 ```bash
 # Install PostgreSQL
 sudo apt-get install postgresql postgresql-contrib  # Ubuntu/Debian
 # or
 brew install postgresql  # macOS
 
-# Create database
+# Create database and user
 sudo -u postgres createdb face_tracking
-sudo -u postgres createuser --interactive
+sudo -u postgres createuser --interactive face_tracking_user
+sudo -u postgres psql -c "ALTER USER face_tracking_user WITH PASSWORD 'your_password';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE face_tracking TO face_tracking_user;"
 ```
 
 ### 5. Environment Configuration
@@ -68,83 +75,54 @@ sudo -u postgres createuser --interactive
 # Copy environment template
 cp .env.template .env
 
-# Edit .env file with your configuration
+# Edit .env file with your PostgreSQL configuration
 nano .env
 ```
 
-## ⚙️ Configuration
-
-### Environment Variables (.env)
-
+**Required .env Configuration:**
 ```bash
-# Database Configuration
+# Database (PostgreSQL only)
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=face_tracking
-DB_USER=postgres
-DB_PASSWORD=your_password
+DB_USER=face_tracking_user
+DB_PASSWORD=your_secure_password
 
-# Security Configuration
-SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-# Application Configuration
-ENVIRONMENT=development  # or production
-DEBUG=true
-LOG_LEVEL=INFO
-
-# Face Recognition Settings
-FACE_RECOGNITION_TOLERANCE=0.6
-FACE_DETECTION_MODEL=hog
-FACE_ENCODING_MODEL=large
-
-# Camera Configuration
-DEFAULT_CAMERA_ID=0
-MAX_CONCURRENT_STREAMS=5
-FRAME_RATE=30
+# Security
+SECRET_KEY=your-super-secret-jwt-key-minimum-32-characters-long
 ```
-
-### Production Configuration
-
-For production deployment:
-1. Set `ENVIRONMENT=production`
-2. Set `DEBUG=false`
-3. Use a strong `SECRET_KEY`
-4. Configure proper database credentials
-5. Set up SSL/TLS certificates
-6. Configure firewall rules
 
 ## 🚦 Running the Application
 
+### First Time Setup
+```bash
+# Start the application
+python start.py --reload
+
+# The Master Admin account will be created automatically
+# IMPORTANT: Save the displayed credentials securely!
+```
+
+**Master Admin Credentials Display:**
+```
+============================================================
+🔐 MASTER ADMIN ACCOUNT CREATED
+============================================================
+Email: master.admin@company.com
+Password: AbC123!@#XyZ
+============================================================
+⚠️  SAVE THESE CREDENTIALS SECURELY - THEY WILL NOT BE SHOWN AGAIN!
+============================================================
+```
+
 ### Development Mode
 ```bash
-# Using the startup script (recommended)
 python start.py --reload --log-level debug
-
-# Or using uvicorn directly
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Production Mode
 ```bash
-# Single worker
-python start.py --host 0.0.0.0 --port 8000
-
-# Multiple workers (recommended for production)
 python start.py --host 0.0.0.0 --port 8000 --workers 4
-
-# Using gunicorn (alternative)
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
-
-### Docker Deployment
-```bash
-# Build image
-docker build -t face-tracking-backend .
-
-# Run container
-docker run -d -p 8000:8000 --env-file .env face-tracking-backend
 ```
 
 ## 📚 API Documentation
@@ -153,78 +131,184 @@ Once running, access the interactive API documentation:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
-### Main Endpoints
+### 🔐 Authentication Endpoints
 
-#### Authentication
-- `POST /auth/login/` - User login
-- `GET /auth/secure/` - Protected endpoint test
-- `GET /auth/role-protected/` - Admin-only endpoint test
-- `POST /auth/users/` - Create user (admin)
-- `PATCH /auth/users/{user_id}/status` - Update user status (admin)
+#### Login
+```bash
+POST /auth/login/
+{
+  "email": "master.admin@company.com",
+  "password": "your_password"
+}
+```
 
-#### Streaming
-- `GET /stream/{camera_id}` - MJPEG video stream
-- `GET /stream/status/{camera_id}` - Camera status
-- `GET /stream/` - Overall streaming status
+#### Create Admin User (Master Admin Only)
+```bash
+POST /auth/users/create-admin/
+{
+  "email": "admin@company.com",
+  "password": "secure_password",
+  "designation": "admin",
+  "department": "IT",
+  "phone_number": "+1234567890"
+}
+```
 
-#### Employees
+#### Create Employee User (Admin or Master Admin)
+```bash
+POST /auth/users/create-employee/
+{
+  "email": "employee@company.com",
+  "password": "secure_password",
+  "designation": "employee",
+  "department": "Engineering",
+  "phone_number": "+1234567890"
+}
+```
+
+### 👥 User Management Endpoints
+
+- `GET /auth/users/` - List all users (Admin only)
+- `GET /auth/me/` - Get current user info
+- `PATCH /auth/users/{user_id}/status` - Update user status (Admin only)
+- `DELETE /auth/users/{user_id}` - Delete user (Admin only)
+
+### 🏢 Employee Management Endpoints
+
 - `GET /employees/` - List all employees
 - `GET /employees/{employee_id}` - Get specific employee
-- `POST /employees/` - Create employee (admin)
-- `PUT /employees/{employee_id}` - Update employee (admin)
-- `DELETE /employees/{employee_id}` - Delete employee (admin)
+- `POST /employees/` - Create employee record (Admin only)
+- `PUT /employees/{employee_id}` - Update employee (Admin only)
+- `DELETE /employees/{employee_id}` - Delete employee (Admin only)
 
-#### Attendance
+### 📹 Streaming & Face Recognition
+
+- `GET /stream/{camera_id}` - MJPEG video stream
+- `GET /stream/status/{camera_id}` - Camera status
+- `POST /embeddings/enroll/` - Enroll employee faces (Admin only)
+
+### 📊 Attendance Tracking
+
 - `GET /attendance/` - Get latest attendance records
 - `GET /attendance/{employee_id}` - Get attendance by employee
 
-#### Face Embeddings
-- `POST /embeddings/enroll/` - Enroll employee faces (admin)
-- `POST /embeddings/add/` - Add single face embedding (admin)
-- `DELETE /embeddings/delete_all/{employee_id}` - Delete all embeddings (admin)
-- `POST /embeddings/archive_all/{employee_id}` - Archive all embeddings (admin)
-
 ## 🔐 Security Features
 
-### Authentication
-- JWT tokens with configurable expiration
-- Role-based access control (admin/user roles)
-- Rate limiting on login attempts
-- Secure password hashing with bcrypt
+### Authentication & Authorization
+- **JWT Tokens**: Secure token-based authentication
+- **Role-Based Access Control**: Master Admin > Admin > Employee hierarchy
+- **Password Security**: bcrypt hashing with salt
+- **Rate Limiting**: Protection against brute force attacks
+- **Session Management**: Secure token expiration and refresh
 
-### API Security
-- CORS protection with configurable origins
-- Request logging and monitoring
-- Input validation with Pydantic models
-- SQL injection protection via SQLAlchemy ORM
+### Database Security
+- **PostgreSQL Only**: No fallback databases for security consistency
+- **Connection Pooling**: Secure connection management
+- **SQL Injection Protection**: SQLAlchemy ORM protection
+- **Data Validation**: Pydantic model validation
 
 ### Production Security Recommendations
-1. Use HTTPS only
-2. Set strong JWT secret keys
+1. Use HTTPS only in production
+2. Set strong JWT secret keys (minimum 32 characters)
 3. Configure proper CORS origins
 4. Implement API rate limiting
 5. Regular security updates
 6. Database connection encryption
 7. Firewall configuration
+8. Monitor authentication logs
+
+## 🗄️ Database Schema
+
+### Users Table
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR UNIQUE NOT NULL,
+    hashed_password VARCHAR NOT NULL,
+    designation VARCHAR NOT NULL,  -- 'employee' or 'admin'
+    department VARCHAR NOT NULL,
+    phone_number VARCHAR,
+    is_master_admin BOOLEAN DEFAULT FALSE,
+    status VARCHAR DEFAULT 'active',
+    last_login_time TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Employees Table
+```sql
+CREATE TABLE employees (
+    id VARCHAR PRIMARY KEY,
+    employee_name VARCHAR NOT NULL,
+    email VARCHAR UNIQUE NOT NULL,
+    designation VARCHAR NOT NULL,  -- 'employee' or 'admin'
+    department VARCHAR NOT NULL,
+    phone_number VARCHAR,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
 
 ## 📊 Monitoring & Logging
 
 ### Log Levels
 - **DEBUG**: Detailed debugging information
-- **INFO**: General operational messages
+- **INFO**: General operational messages (including auth events)
 - **WARNING**: Warning messages for potential issues
 - **ERROR**: Error messages for failed operations
 - **CRITICAL**: Critical errors requiring immediate attention
+
+### Authentication Logging
+All authentication attempts are logged with:
+- User email
+- Success/failure status
+- Client IP address
+- Timestamp
 
 ### Log Files
 - Location: `logs/app.log`
 - Rotation: Daily with 30-day retention
 - Format: Timestamp | Level | Module | Message
 
-### Monitoring Endpoints
-- Health check: `GET /`
-- Stream status: `GET /stream/`
-- Camera status: `GET /stream/status/{camera_id}`
+## 🚀 Deployment
+
+### Environment Variables for Production
+```bash
+# Production settings
+ENVIRONMENT=production
+DEBUG=false
+SECRET_KEY=your-production-secret-key-minimum-32-characters-long
+
+# Database
+DB_HOST=your-production-db-host
+DB_NAME=face_tracking_prod
+DB_USER=face_tracking_user
+DB_PASSWORD=your-secure-production-password
+
+# CORS
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+```
+
+### Docker Deployment
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+```
+
+### Systemd Service (Linux)
+```bash
+# Create service file
+sudo nano /etc/systemd/system/face-tracking.service
+
+# Enable and start
+sudo systemctl enable face-tracking
+sudo systemctl start face-tracking
+```
 
 ## 🛠️ Development
 
@@ -232,207 +316,81 @@ Once running, access the interactive API documentation:
 ```
 backend/
 ├── app/                    # FastAPI application
-│   ├── main.py            # Application entry point
+│   ├── main.py            # Application entry point with master admin setup
 │   ├── config.py          # Configuration management
-│   ├── dependencies.py    # Shared dependencies
 │   └── routers/           # API route handlers
+│       ├── auth.py        # Authentication & user management
+│       ├── employees.py   # Employee management
+│       ├── streaming.py   # Camera streaming
+│       ├── embeddings.py  # Face enrollment
+│       └── attendance.py  # Attendance tracking
 ├── core/                  # Core face tracking logic
-│   ├── fts_system.py      # Face tracking pipeline
-│   └── face_enroller.py   # Face enrollment management
-├── db/                    # Database components
-│   ├── db_config.py       # Database configuration
+├── db/                    # Database components (PostgreSQL only)
+│   ├── db_config.py       # PostgreSQL configuration
 │   ├── db_models.py       # SQLAlchemy models
 │   └── db_manager.py      # Database operations
 ├── utils/                 # Utility modules
 │   ├── security.py        # Authentication utilities
 │   └── logging.py         # Logging configuration
 ├── tasks/                 # Background tasks
-│   └── camera_tasks.py    # Camera monitoring tasks
 ├── requirements.txt       # Python dependencies
-├── .env                   # Environment variables
+├── .env.template         # Environment template
 └── start.py              # Startup script
 ```
 
-### Adding New Features
-1. Create router in `app/routers/`
-2. Add database models in `db/db_models.py`
-3. Update database manager in `db/db_manager.py`
-4. Add authentication if needed using `utils/security.py`
-5. Update configuration in `app/config.py`
-6. Include router in `app/main.py`
+## 🔧 User Management Workflow
 
-### Testing
-```bash
-# Run tests
-pytest
+### Initial Setup
+1. Start the application
+2. Master Admin account is created automatically
+3. Save the displayed credentials securely
 
-# Run with coverage
-pytest --cov=app
+### Creating Admin Users
+1. Login as Master Admin
+2. Use `POST /auth/users/create-admin/` endpoint
+3. Provide email, password, department (designation auto-set to "admin")
 
-# Run specific test file
-pytest tests/test_auth.py
-```
+### Creating Employee Users
+1. Login as Admin or Master Admin
+2. Use `POST /auth/users/create-employee/` endpoint
+3. Provide email, password, department (designation auto-set to "employee")
 
-## 🚀 Deployment
-
-### Company Server Deployment
-
-#### Option 1: Direct Deployment
-```bash
-# On server
-git clone <repository>
-cd face-tracking-system/backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.template .env
-# Edit .env with production settings
-
-# Run with systemd service
-sudo systemctl enable face-tracking-backend
-sudo systemctl start face-tracking-backend
-```
-
-#### Option 2: Docker Deployment
-```bash
-# Build and deploy
-docker build -t face-tracking-backend .
-docker run -d --name fts-backend \
-  --restart unless-stopped \
-  -p 8000:8000 \
-  --env-file .env \
-  face-tracking-backend
-```
-
-#### Option 3: Docker Compose
-```yaml
-version: '3.8'
-services:
-  backend:
-    build: .
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      - db
-  
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_DB: face_tracking
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-### Reverse Proxy Setup (Nginx)
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    location /stream/ {
-        proxy_pass http://localhost:8000/stream/;
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_set_header Connection '';
-        proxy_http_version 1.1;
-        chunked_transfer_encoding off;
-    }
-}
-```
-
-## 📈 Performance Optimization
-
-### Database Optimization
-- Use connection pooling
-- Implement database indexing
-- Regular VACUUM operations
-- Monitor query performance
-
-### Face Recognition Optimization
-- Adjust `FACE_RECOGNITION_TOLERANCE`
-- Use `hog` model for speed, `cnn` for accuracy
-- Implement face embedding caching
-- Process every nth frame for real-time performance
-
-### Streaming Optimization
-- Limit concurrent streams
-- Adjust frame rate based on hardware
-- Implement adaptive quality settings
-- Use hardware acceleration if available
+### Employee Enrollment for Face Recognition
+1. Create employee user account
+2. Create employee record with `POST /employees/`
+3. Enroll face embeddings with `POST /embeddings/enroll/`
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-#### Camera Access Issues
+#### Master Admin Not Created
 ```bash
-# Check camera permissions
-ls -l /dev/video*
-sudo usermod -a -G video $USER
+# Check logs for errors
+tail -f logs/app.log
 
-# Test camera
-python -c "import cv2; print(cv2.VideoCapture(0).isOpened())"
+# Manually check database
+psql -h localhost -U face_tracking_user -d face_tracking
+SELECT * FROM users WHERE is_master_admin = true;
 ```
 
 #### Database Connection Issues
 ```bash
+# Test PostgreSQL connection
+psql -h localhost -U face_tracking_user -d face_tracking
+
 # Check PostgreSQL status
 sudo systemctl status postgresql
-
-# Test connection
-psql -h localhost -U postgres -d face_tracking
 ```
 
-#### Permission Issues
+#### Authentication Issues
 ```bash
-# Fix file permissions
-chmod +x start.py
-chown -R $USER:$USER logs/
-mkdir -p uploads face_images
+# Check JWT secret key
+grep SECRET_KEY .env
+
+# Verify user status
+psql -c "SELECT email, status, is_master_admin FROM users;"
 ```
-
-#### Memory Issues
-- Reduce `MAX_CONCURRENT_STREAMS`
-- Adjust worker processes
-- Monitor with `htop` or `top`
-- Consider hardware upgrade
-
-### Log Analysis
-```bash
-# View real-time logs
-tail -f logs/app.log
-
-# Search for errors
-grep "ERROR" logs/app.log
-
-# Monitor specific user
-grep "user123" logs/app.log
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
 
 ## 📄 License
 
@@ -441,11 +399,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🆘 Support
 
 For support and questions:
-- Create an issue in the repository
 - Check the troubleshooting section
-- Review the API documentation
-- Contact the development team
+- Review the API documentation at `/docs`
+- Check application logs in `logs/app.log`
+- Verify database connectivity and user permissions
 
 ---
 
-**Note**: This system is designed for company internal use. Ensure compliance with privacy regulations and company policies when deploying face recognition systems.
+**🔐 Security Note**: This system implements enterprise-grade role-based access control. Always use strong passwords, secure JWT keys, and HTTPS in production environments.
+
+**📊 Database Note**: This system uses PostgreSQL exclusively for data consistency and security. No other database systems are supported.

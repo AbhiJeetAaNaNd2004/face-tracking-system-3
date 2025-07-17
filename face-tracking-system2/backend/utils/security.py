@@ -1,7 +1,7 @@
 """
 Centralized security utilities for authentication and authorization.
 This module provides reusable functions for JWT token handling, password management,
-and access control to eliminate code duplication across routers.
+and access control with role-based permissions.
 """
 import jwt
 import bcrypt
@@ -13,14 +13,18 @@ from fastapi import HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 from db.db_manager import DatabaseManager
+
 # Security setup
 security = HTTPBearer()
+
 # Rate limiting storage
 login_attempts = defaultdict(list)
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_WINDOW_MINUTES = 15
+
 # Database dependency
 db_manager_instance = None
+
 def get_db_manager():
     """Get database manager instance (singleton pattern)"""
     global db_manager_instance
@@ -106,9 +110,29 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
             headers={"WWW-Authenticate": "Bearer"}
         )
 
+def require_master_admin(token_data: Dict = Depends(verify_token)) -> Dict:
+    """
+    Require master admin role for endpoint access.
+    
+    Args:
+        token_data: Token payload from verify_token
+        
+    Returns:
+        Token payload if user is master admin
+        
+    Raises:
+        HTTPException: If user is not master admin
+    """
+    if not token_data.get("is_master_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Master admin privileges required"
+        )
+    return token_data
+
 def require_admin(token_data: Dict = Depends(verify_token)) -> Dict:
     """
-    Require admin role for endpoint access.
+    Require admin role (including master admin) for endpoint access.
     
     Args:
         token_data: Token payload from verify_token
@@ -119,7 +143,8 @@ def require_admin(token_data: Dict = Depends(verify_token)) -> Dict:
     Raises:
         HTTPException: If user is not admin
     """
-    if token_data.get("role") != "admin":
+    designation = token_data.get("designation")
+    if designation != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"
@@ -137,8 +162,8 @@ def require_roles(allowed_roles: List[str]):
         Dependency function for FastAPI
     """
     def role_checker(token_data: Dict = Depends(verify_token)) -> Dict:
-        user_role = token_data.get("role")
-        if user_role not in allowed_roles:
+        user_designation = token_data.get("designation")
+        if user_designation not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Required roles: {', '.join(allowed_roles)}"
@@ -200,31 +225,36 @@ def check_rate_limit(client_ip: str) -> bool:
     login_attempts[client_ip].append(current_time)
     return True
 
-def authenticate_user(username: str, password: str, db: DatabaseManager) -> Optional[Dict]:
+def authenticate_user(email: str, password: str, db: DatabaseManager) -> Optional[Dict]:
     """
-    Authenticate user with username and password.
+    Authenticate user with email and password.
     
     Args:
-        username: Username
+        email: User email
         password: Plain text password
         db: Database manager instance
         
     Returns:
         User data dictionary if authenticated, None otherwise
     """
-    user = db.get_user_by_username(username)
+    user = db.get_user_by_email(email)
     if not user:
         return None
     
     if user.status != "active":
         return None
     
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, user.hashed_password):
         return None
     
+    # Update last login time
+    db.update_last_login(user.id)
+    
     return {
-        "username": user.username,
-        "role": user.role.role_name if user.role else "user",
+        "email": user.email,
+        "designation": user.designation,
+        "department": user.department,
         "status": user.status,
-        "user_id": user.id
+        "user_id": user.id,
+        "is_master_admin": user.is_master_admin
     }
