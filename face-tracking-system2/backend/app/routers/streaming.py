@@ -24,11 +24,31 @@ class PipelineSingleton:
 
 
 @router.get("/{camera_id}")
-async def stream_camera(camera_id: int, request: Request, user=Depends(verify_token)):
+async def stream_camera(camera_id: int, request: Request, token: str = None):
     """
     Stream video from a specific camera with face detection overlay.
     Includes stream management to prevent resource conflicts.
     """
+    
+    # Verify token from query parameter for streaming
+    if token:
+        try:
+            import jwt
+            from app.config import settings
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            if payload.get("status") != "active":
+                raise HTTPException(status_code=403, detail="Account inactive")
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    else:
+        # Fallback to header-based auth
+        try:
+            from fastapi.security import HTTPBearer
+            security = HTTPBearer()
+            credentials = await security(request)
+            user = verify_token(credentials)
+        except:
+            raise HTTPException(status_code=401, detail="Authentication required")
     
     # Check if too many streams are active
     if stream_manager.get_total_streams() >= settings.MAX_CONCURRENT_STREAMS:
@@ -65,10 +85,7 @@ async def stream_camera(camera_id: int, request: Request, user=Depends(verify_to
             logger.error(f"Stream error for camera {camera_id}: {e}")
             return
 
-    logger.info(
-        f"🔴 Stream started for camera {camera_id} by user {user.get('sub')} "
-        f"(Active streams: {stream_manager.get_total_streams()})"
-    )
+    logger.info(f"🔴 Stream started for camera {camera_id} (Active streams: {stream_manager.get_total_streams()})")
 
     return StreamingResponse(
         safe_stream(),

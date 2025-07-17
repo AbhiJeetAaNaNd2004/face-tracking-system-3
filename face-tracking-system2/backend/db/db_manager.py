@@ -544,19 +544,35 @@ class DatabaseManager:
     def log_attendance(self, employee_id: str, camera_id: int, event_type: str, 
                       confidence_score: float = 0.0, work_status: str = 'working', notes: str = None) -> bool:
         """Log attendance record."""
+        return self.record_attendance(employee_id, camera_id, confidence_score, event_type, work_status, notes)
+    
+    def record_attendance(self, employee_id: str, camera_id: int, confidence_score: float = 0.0, 
+                         event_type: str = 'entry', work_status: str = 'working', 
+                         notes: str = None, timestamp: float = None) -> bool:
+        """Record attendance with flexible parameters."""
         session = None
         try:
             session = self.Session()
+            
+            # Convert timestamp if provided
+            record_time = None
+            if timestamp:
+                from datetime import datetime
+                record_time = datetime.fromtimestamp(timestamp)
+            
             attendance_record = AttendanceRecord(
                 employee_id=employee_id,
                 camera_id=camera_id,
                 event_type=event_type,
                 confidence_score=confidence_score,
                 work_status=work_status,
-                notes=notes
+                notes=notes,
+                timestamp=record_time
             )
             session.add(attendance_record)
             session.commit()
+            
+            self.logger.info(f"Recorded attendance for {employee_id} with confidence {confidence_score:.3f}")
             return True
         except Exception as e:
             if session:

@@ -20,7 +20,14 @@ const CamerasPage: React.FC = () => {
       const status = await apiService.getStreamStatus();
       setStreamStatus(status);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch stream status');
+      console.error('Stream status error:', err);
+      setError('Stream status unavailable');
+      // Set default values for demo
+      setStreamStatus({
+        total_active_streams: 0,
+        max_concurrent_streams: 5,
+        available_slots: 5
+      });
     } finally {
       setIsLoading(false);
     }

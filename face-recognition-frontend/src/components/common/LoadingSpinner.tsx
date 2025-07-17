@@ -25,7 +25,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     <div className={containerClasses}>
       <div className="text-center">
         <div 
-          className={`animate-spin rounded-full border-b-2 border-primary-600 ${sizeClasses[size]} mx-auto`}
+          className={`animate-spin rounded-full border-2 border-gray-200 border-t-primary-600 ${sizeClasses[size]} mx-auto`}
         />
         {text && (
           <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">

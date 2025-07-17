@@ -30,9 +30,9 @@ const AdminDashboard: React.FC = () => {
       setError(null);
       
       const [employeesData, attendanceData, streamData] = await Promise.all([
-        apiService.getEmployees(),
-        apiService.getAttendanceRecords(100),
-        apiService.getStreamStatus().catch(() => null)
+        apiService.getEmployees().catch(() => []),
+        apiService.getAttendanceRecords(100).catch(() => []),
+        apiService.getStreamStatus().catch(() => ({ total_active_streams: 0, max_concurrent_streams: 5, available_slots: 5 }))
       ]);
       
       setEmployees(employeesData);
@@ -40,7 +40,8 @@ const AdminDashboard: React.FC = () => {
       setStreamStatus(streamData);
       setLastRefresh(new Date());
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch dashboard data');
+      console.error('Dashboard fetch error:', err);
+      setError('Some dashboard data may be unavailable');
     } finally {
       setIsLoading(false);
     }

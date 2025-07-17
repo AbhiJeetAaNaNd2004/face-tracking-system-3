@@ -62,6 +62,15 @@ export interface LoginRequest {
 export interface LoginResponse {
   access_token: string;
   token_type: string;
+  user_info?: {
+    email: string;
+    username: string;
+    designation: string;
+    department: string;
+    is_master_admin: boolean;
+    role: string;
+    user_id?: number;
+  };
 }
 
 export interface AttendanceStats {

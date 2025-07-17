@@ -29,14 +29,15 @@ const EmployeeDashboard: React.FC = () => {
         const employeeId = user?.username || 'employee1'; // Fallback for demo
         
         const [attendanceData, empData] = await Promise.all([
-          apiService.getEmployeeAttendance(employeeId),
-          apiService.getEmployee(employeeId).catch(() => null) // Employee might not exist yet
+          apiService.getEmployeeAttendance(employeeId).catch(() => []),
+          apiService.getEmployee(employeeId).catch(() => null)
         ]);
         
         setAttendance(attendanceData);
         setEmployeeData(empData);
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch data');
+        console.error('Employee dashboard error:', err);
+        setError('Some data may be unavailable');
       } finally {
         setIsLoading(false);
       }

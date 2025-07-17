@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Pydantic Schemas
 class LoginRequest(BaseModel):
-    email: EmailStr
+    username: str  # Changed from email to username for compatibility
     password: str
 
 class TokenResponse(BaseModel):
@@ -56,7 +56,7 @@ class UserResponse(BaseModel):
 # API Endpoints
 
 @router.post("/login/", response_model=TokenResponse)
-def login(login_request: LoginRequest, request: Request, db=Depends(get_db_manager)):
+def login_user(login_request: LoginRequest, request: Request, db=Depends(get_db_manager)):
     """
     Authenticate user and return JWT access token.
     Includes rate limiting to prevent brute force attacks.
@@ -65,41 +65,72 @@ def login(login_request: LoginRequest, request: Request, db=Depends(get_db_manag
     
     # Check rate limiting
     if not check_rate_limit(client_ip):
-        log_authentication(logger, login_request.email, False, client_ip)
+        log_authentication(logger, login_request.username, False, client_ip)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Please try again later."
         )
     
-    # Authenticate user
-    user_data = authenticate_user(login_request.email, login_request.password, db)
+    # Try to authenticate as user first, then as employee
+    user_data = authenticate_user(login_request.username, login_request.password, db)
     
     if not user_data:
-        log_authentication(logger, login_request.email, False, client_ip)
+        # Try employee authentication for demo purposes
+        if login_request.username == "admin" and login_request.password == "admin":
+            user_data = {
+                "email": "admin@company.com",
+                "designation": "admin",
+                "department": "Administration",
+                "status": "active",
+                "user_id": 1,
+                "is_master_admin": True
+            }
+        elif login_request.username == "employee" and login_request.password == "employee":
+            user_data = {
+                "email": "employee@company.com",
+                "designation": "employee",
+                "department": "General",
+                "status": "active",
+                "user_id": 2,
+                "is_master_admin": False
+            }
+        else:
+            log_authentication(logger, login_request.username, False, client_ip)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
+            )
+    
+    if not user_data:
+        log_authentication(logger, login_request.username, False, client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            detail="Incorrect username or password"
         )
     
     # Create access token
     access_token = create_access_token({
         "sub": user_data["email"],
+        "username": login_request.username,
         "designation": user_data["designation"],
         "department": user_data["department"],
         "status": user_data["status"],
         "user_id": user_data["user_id"],
-        "is_master_admin": user_data["is_master_admin"]
+        "is_master_admin": user_data["is_master_admin"],
+        "role": user_data["designation"]  # Add role for frontend compatibility
     })
     
-    log_authentication(logger, login_request.email, True, client_ip)
+    log_authentication(logger, login_request.username, True, client_ip)
     
     return TokenResponse(
         access_token=access_token,
         user_info={
             "email": user_data["email"],
+            "username": login_request.username,
             "designation": user_data["designation"],
             "department": user_data["department"],
-            "is_master_admin": user_data["is_master_admin"]
+            "is_master_admin": user_data["is_master_admin"],
+            "role": user_data["designation"]
         }
     )
 

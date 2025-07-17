@@ -114,7 +114,7 @@ class ApiService {
   // Get camera stream URL
   getCameraStreamUrl(cameraId: number): string {
     const token = localStorage.getItem('access_token');
-    return `${API_BASE_URL}/stream/${cameraId}?token=${token}`;
+    return `${API_BASE_URL}/stream/${camera_id}`;
   }
 
   // WebSocket connection for real-time updates

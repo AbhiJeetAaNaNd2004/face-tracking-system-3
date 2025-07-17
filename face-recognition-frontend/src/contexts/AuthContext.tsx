@@ -57,24 +57,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Store token
       localStorage.setItem('access_token', response.access_token);
 
-      // Verify token and get user info
-      const userInfo = await apiService.verifyToken();
-      
-      // Create user object from token payload
-      // Note: In a real implementation, you might want to decode the JWT or have a separate user info endpoint
+      // Create user object from login response
       const userData: User = {
-        id: userInfo.user_id || 1,
+        id: response.user_info?.user_id || 1,
         username: credentials.username,
-        role: userInfo.role as 'admin' | 'employee',
-        status: userInfo.status || 'active',
+        role: response.user_info?.role as 'admin' | 'employee' || 'employee',
+        status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      
 
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
     } catch (error: any) {
-      setError(error.response?.data?.detail || 'Login failed');
+      setError(error.response?.data?.detail || error.message || 'Login failed');
       throw error;
     } finally {
       setIsLoading(false);

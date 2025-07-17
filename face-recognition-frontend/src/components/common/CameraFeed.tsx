@@ -43,7 +43,9 @@ const CameraFeed: React.FC<CameraFeedProps> = ({
       
       if (imgRef.current) {
         const streamUrl = apiService.getCameraStreamUrl(cameraId);
-        imgRef.current.src = streamUrl;
+        const token = localStorage.getItem('access_token');
+        const urlWithAuth = `${streamUrl}?token=${encodeURIComponent(token || '')}`;
+        imgRef.current.src = urlWithAuth;
         setIsStreaming(true);
       }
     } catch (err: any) {
